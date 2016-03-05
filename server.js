@@ -7,6 +7,29 @@ var moment = require('moment');
 
 app.use(express.static(__dirname + '/public'));
 
+//Sends current users to provided socket
+
+function sendCurrentUsers (socket) {
+	var info = clientInfo[socket.id];
+	var users = [];
+
+	if(typeof info === undefined){
+		return;
+	}
+
+	Object.keys(clientInfo).forEach( function(socketId){
+		var userInfo = clientInfo[socketId];
+		if(info.room === userInfo.room){
+			users.push(userInfo.name);
+		}
+	});
+	socket.emit('message', {
+			name: 'System',
+			text: 'Current Users: ' + users.join(', '),
+			timestamp: moment().valueOf()
+		});
+}
+
 var clientInfo = {
 
 };
@@ -41,8 +64,14 @@ io.on('connection', function(socket){
 	socket.on('message', function(message){
 		console.log('Message received: ' + message.text);
 
-		message.timestamp = moment.valueOf();
-		io.to(clientInfo[socket.id].room).emit('message', message);
+		if(message.text === '@currentUsers'){
+			sendCurrentUsers(socket);
+		}else{
+			message.timestamp = moment.valueOf();
+			io.to(clientInfo[socket.id].room).emit('message', message);	
+		}
+
+		
 	});
 
 	socket.emit('message', {
