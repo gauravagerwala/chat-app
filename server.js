@@ -1,10 +1,24 @@
 var PORT = process.env.PORT || 3000;
 var express = require('express');
 var app = express();
+var path = require('path');
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
 var moment = require('moment');
+var multer = require("multer");
 
+
+var storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, './public/uploads')
+  },
+  filename: function (req, file, cb) {
+    var finalName = file.originalname.split('.')[0]+'-'+Date.now()+'.'+file.originalname.split('.')[1];
+    cb(null, finalName);
+  }
+})
+
+var upload = multer({ storage: storage })
 app.use(express.static(__dirname + '/public'));
 
 //Sends current users to provided socket
@@ -68,17 +82,27 @@ io.on('connection', function(socket){
 			sendCurrentUsers(socket);
 		}else{
 			message.timestamp = moment.valueOf();
-			io.to(clientInfo[socket.id].room).emit('message', message);	
+			io.to(clientInfo[socket.id].room).emit('message', message);
 		}
 
-		
+
 	});
 
 	socket.emit('message', {
 		name: 'System',
 		text: 'Welcome to the chat application',
 		timestamp: moment().valueOf()
-	});	
+	});
+});
+
+app.post('/uploadFile',upload.single('uploadFile'),function(req,res,next){
+		console.log("file uploaded -- "+req.file.originalname);
+    io.to(req.body.room).emit('link',{
+      name : req.body.name,
+      fname : req.file.filename ,
+      timestamp : moment.valueOf(),
+      link : '/uploads/'+req.file.filename
+    });
 });
 
 http.listen(PORT, function(){
